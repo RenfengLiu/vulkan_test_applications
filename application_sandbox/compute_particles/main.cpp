@@ -126,9 +126,9 @@ class ComputeTask {
         &waitStageMask,                 // pWaitDstStageMask,
         1,                              // commandBufferCount
         &(dat.command_buffer_.get_command_buffer()),
-        1,                              // signalSemaphoreCount
+        1,  // signalSemaphoreCount
         &GetSemaphoreForIndex(frame_index)
-             ->get_raw_object()         // pSignalSemaphores
+             ->get_raw_object()  // pSignalSemaphores
     };
 
     (*app_->async_compute_queue())
@@ -153,10 +153,10 @@ class ComputeTask {
         0,                                          // createFlags
         sizeof(simulation_data) * TOTAL_PARTICLES,  // size
         VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,    // usageFlags
-        VK_SHARING_MODE_EXCLUSIVE,                 // sharingMode
-        0,                                         // queueFamilyIndexCount
-        nullptr                                    // pQueueFamilyIndices
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,  // usageFlags
+        VK_SHARING_MODE_EXCLUSIVE,               // sharingMode
+        0,                                       // queueFamilyIndexCount
+        nullptr                                  // pQueueFamilyIndices
     };
 
     simulation_ssbo_ = app_->CreateAndBindDeviceBuffer(&create_info);
@@ -200,8 +200,8 @@ class ComputeTask {
         nullptr,                        // pWaitDstStageMask,
         1,                              // commandBufferCount
         &(initial_data_buffer->get_command_buffer()),
-        0,                             // signalSemaphoreCount
-        nullptr                        // pSignalSemaphores
+        0,       // signalSemaphoreCount
+        nullptr  // pSignalSemaphores
     };
 
     // Actually finish filling the initial data, and transfer to the
@@ -631,7 +631,7 @@ class ComputeParticlesSample
         nullptr,                        // pWaitDstStageMask,
         0,                              // commandBufferCount
         nullptr,
-        1,                              // signalSemaphoreCount
+        1,  // signalSemaphoreCount
         &frame_data->render_semaphore_->get_raw_object()  // pSignalSemaphores
     };
 
@@ -791,7 +791,6 @@ class ComputeParticlesSample
                                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
                                     nullptr, 1, &barrier, 0, nullptr);
-    // }
 
     // The rest of the normal drawing.
     VkRenderPassBeginInfo pass_begin = {
@@ -841,6 +840,7 @@ class ComputeParticlesSample
 
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
 
+    
     VkSubmitInfo init_submit_info{
         VK_STRUCTURE_TYPE_SUBMIT_INFO,  // sType
         nullptr,                        // pNext
@@ -853,10 +853,16 @@ class ComputeParticlesSample
         1,                                          // signalSemaphoreCount
         &data->render_semaphore_->get_raw_object()  // pSignalSemaphores
     };
+    if (frame_count_ == 10) {
+        init_submit_info.signalSemaphoreCount = 0;
+        init_submit_info.pSignalSemaphores = nullptr;
+    }
 
     app()->render_queue()->vkQueueSubmit(app()->render_queue(), 1,
                                          &init_submit_info,
                                          static_cast<VkFence>(VK_NULL_HANDLE));
+
+    frame_count_++;
   }
 
  private:
@@ -881,6 +887,7 @@ class ComputeParticlesSample
   float time_since_last_notify_ = 0.f;
   uint32_t frames_since_last_notify_ = 0;
   ComputeTask compute_task_;
+  uint64_t frame_count_ = 0;
 };
 
 int main_entry(const entry::EntryData* data) {
