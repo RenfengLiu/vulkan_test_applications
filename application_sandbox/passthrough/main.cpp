@@ -271,6 +271,48 @@ class PassthroughSample
   }
   virtual void Render(vulkan::VkQueue* queue, size_t frame_index,
                       PassthroughFrameData* frame_data) override {
+    // Re-record command buffer every 4 frames.
+    if (frame_count_ % 4 == 0) {
+      // free and re-allocate the command buffer every 8 frames.
+      if (frame_count_ % 8 == 0) {
+        frame_data->command_buffer_ =
+            containers::make_unique<vulkan::VkCommandBuffer>(
+                data_->allocator(), app()->GetCommandBuffer());
+      }
+
+      (*frame_data->command_buffer_)
+          ->vkBeginCommandBuffer((*frame_data->command_buffer_),
+                                 &sample_application::kBeginCommandBuffer);
+      vulkan::VkCommandBuffer& cmdBuffer = (*frame_data->command_buffer_);
+      VkClearValue clear;
+      vulkan::MemoryClear(&clear);
+
+      VkRenderPassBeginInfo pass_begin = {
+          VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,  // sType
+          nullptr,                                   // pNext
+          *render_pass_,                             // renderPass
+          *frame_data->framebuffer_,                 // framebuffer
+          {{0, 0},
+           {app()->swapchain().width(),
+            app()->swapchain().height()}},  // renderArea
+          1,                                // clearValueCount
+          &clear                            // clears
+      };
+      const ::VkBuffer vertex_buffers[2] = {*frame_data->vertices_buf_,
+                                            *frame_data->uv_buf_};
+      const ::VkDeviceSize vertex_buffer_offsets[2] = {0, 0};
+
+      cmdBuffer->vkCmdBeginRenderPass(cmdBuffer, &pass_begin,
+                                      VK_SUBPASS_CONTENTS_INLINE);
+      cmdBuffer->vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                   *passthrough_pipeline_);
+      cmdBuffer->vkCmdBindVertexBuffers(cmdBuffer, 0, 2, vertex_buffers,
+                                        vertex_buffer_offsets);
+
+      cmdBuffer->vkCmdDraw(cmdBuffer, 3, frame_count_ % 3 + 1, 0, 0);
+      cmdBuffer->vkCmdEndRenderPass(cmdBuffer);
+      cmdBuffer->vkEndCommandBuffer(cmdBuffer);
+    }
     VkSubmitInfo init_submit_info{
         VK_STRUCTURE_TYPE_SUBMIT_INFO,  // sType
         nullptr,                        // pNext
@@ -286,6 +328,7 @@ class PassthroughSample
     app()->render_queue()->vkQueueSubmit(app()->render_queue(), 1,
                                          &init_submit_info,
                                          static_cast<VkFence>(VK_NULL_HANDLE));
+    frame_count_++;
   }
 
  private:
@@ -293,6 +336,7 @@ class PassthroughSample
   containers::unique_ptr<vulkan::PipelineLayout> pipeline_layout_;
   containers::unique_ptr<vulkan::VulkanGraphicsPipeline> passthrough_pipeline_;
   containers::unique_ptr<vulkan::VkRenderPass> render_pass_;
+  uint64_t frame_count_ = 0;
 };
 
 int main_entry(const entry::EntryData* data) {

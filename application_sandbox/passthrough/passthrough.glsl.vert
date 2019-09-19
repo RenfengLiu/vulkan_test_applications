@@ -21,6 +21,6 @@ layout (location = 1) in vec4 in_color;
 layout (location = 0) out vec4 out_color;
 
 void main() {
-    gl_Position = position;
+    gl_Position = position + gl_InstanceIndex * 0.1;
     out_color = in_color;
 }
